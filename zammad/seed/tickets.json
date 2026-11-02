@@ -1,0 +1,1203 @@
+[
+  {
+    "title": "[teamwork-attendance] QR attendance code is single-use, but one QR is shown to the whole class",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "qr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] QR attendance code is single-use, but one QR is shown to the whole class",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/main.py:531-534, app/security.py:149-160, app/static/app.js:12 (QR_REFRESH_MS = 20000)</code></p><p><b>Steps to reproduce:</b><br>Open a session and show the board. Two enrolled students scan the same QR within 20 s.</p><p><b>Expected:</b><br>Every student in the room can check in with the QR on the projector.</p><p><b>Actual:</b><br>Student A gets 200. Student B gets 409 'QR code has already been used'. Each QR that the board shows works for one student per 20 s refresh, so in a class of 30 almost everyone falls back to typing the code.</p><p><b>Suggested fix:</b><br>Make the board's QR valid for multiple uses within its TTL (rely on the short expiry + code_version), or bind a nonce per student instead of per token.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Per-IP attempt limit lets a few students lock the whole class out of attendance",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "rate-limit"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Per-IP attempt limit lets a few students lock the whole class out of attendance",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/main.py:132-164 (client_ip, attempt_limit_reached), app/config.py:14 (attempt_limit_per_ip=30)</code></p><p><b>Steps to reproduce:</b><br>Open a session. 6 students on the same network (campus Wi-Fi NAT) each send 5 wrong codes. A 7th student then sends the correct code.</p><p><b>Expected:</b><br>The student with the correct code is marked present.</p><p><b>Actual:</b><br>429 'Too many failed attempts' for everyone behind that IP for 10 minutes. Behind a reverse proxy (uvicorn runs without --proxy-headers), every request has the proxy's IP, so 30 wrong tries from anyone block the whole session.</p><p><b>Suggested fix:</b><br>Don't block correct codes on IP limits (only slow down failures), configure trusted proxy headers, and key limits per student first.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Login lockout is keyed only on email, so anyone can lock any account",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Login lockout is keyed only on email, so anyone can lock any account",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/main.py:268-288 (authenticate)</code></p><p><b>Steps to reproduce:</b><br>Send 10 POST /api/v1/auth/token with the victim's email and a wrong password. The victim then logs in with the correct password.</p><p><b>Expected:</b><br>The real user can still sign in, or the attacker is throttled by IP.</p><p><b>Actual:</b><br>The victim gets 429 'Too many failed sign-in attempts' for 15 minutes. An attacker can keep a professor locked out at the start of every class.</p><p><b>Suggested fix:</b><br>Throttle by IP + email pair, add a CAPTCHA/backoff instead of a hard lock, and let a correct password through from a known device.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] PROFESSOR_SIGNUP_CODE is committed in docker-compose.yml and the production check ignores it",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "docker"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] PROFESSOR_SIGNUP_CODE is committed in docker-compose.yml and the production check ignores it",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>docker-compose.yml (PROFESSOR_SIGNUP_CODE: professor-dev-only, no APP_ENV), app/main.py:93-103</code></p><p><b>Steps to reproduce:</b><br>Deploy with the provided compose file. Register with role=professor and professor_code=professor-dev-only.</p><p><b>Expected:</b><br>Professor sign-up needs a secret that only staff know. Production refuses to start with known default values.</p><p><b>Actual:</b><br>Anyone who reads the public repo can create a professor account. check_production_settings() validates only JWT/CODE secrets, and compose never sets APP_ENV=production, so the guard never runs.</p><p><b>Suggested fix:</b><br>Remove the code from compose (use an env file/secret), add it to the production check, and set APP_ENV in deployment configs.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Login response time shows whether an email is registered",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Login response time shows whether an email is registered",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/main.py:282-283</code></p><p><b>Steps to reproduce:</b><br>Time POST /api/v1/auth/token with a wrong password for a registered email and for an unknown one.</p><p><b>Expected:</b><br>The same response time for both.</p><p><b>Actual:</b><br>Registered: ~138 ms (argon2 verify runs). Unknown: ~15 ms (verify skipped). This exposes which student and professor emails exist.</p><p><b>Suggested fix:</b><br>Verify against a dummy hash when the user doesn't exist.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Re-enrolling a removed student counts sessions from the gap as absences",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "statistics",
+      "enrollment"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Re-enrolling a removed student counts sessions from the gap as absences",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/main.py:361-366 (enroll_student re-activation branch)</code></p><p><b>Steps to reproduce:</b><br>Enroll a student, remove them, then open and close a session. Re-enroll the student and open GET /students/me/statistics.</p><p><b>Expected:</b><br>The session held while the student was out of the class does not count.</p><p><b>Actual:</b><br>total_sessions=1, absent=1, attendance_percentage=0.0. Re-activation sets ended_at=None but keeps the old enrolled_at, so the enrollment looks continuous.</p><p><b>Suggested fix:</b><br>On re-enroll, set enrolled_at=now (or keep a history of enrollment periods).</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] A section can have several open sessions, but students see only the newest one",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "sessions"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] A section can have several open sessions, but students see only the newest one",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/main.py:407-442 (open_attendance), 969-977 (list_sections)</code></p><p><b>Steps to reproduce:</b><br>The professor opens a session twice for the same section (e.g. clicks twice). The student lists sections, then both sessions are closed.</p><p><b>Expected:</b><br>Opening a second session is refused, or the first one is closed automatically.</p><p><b>Actual:</b><br>Both sessions stay open. The student UI shows only the newest, and after closing, the student is absent twice (absent=2).</p><p><b>Suggested fix:</b><br>Reject or auto-close an existing open session when opening a new one.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] A corrupt or truncated image in the sheet scan returns 500 Internal Server Error",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] A corrupt or truncated image in the sheet scan returns 500 Internal Server Error",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/attendance_scan.py:307-313, app/recognition.py:100</code></p><p><b>Steps to reproduce:</b><br>POST /api/v1/sections/{id}/attendance-scans with a file that starts with the PNG signature followed by garbage.</p><p><b>Expected:</b><br>A 4xx error such as 'Could not read the image'.</p><p><b>Actual:</b><br>500 Internal Server Error (PIL.UnidentifiedImageError is not caught).</p><p><b>Suggested fix:</b><br>Catch PIL errors (and DecompressionBombError) and return 415/422.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet date detection reads first names as dates (Maria -> 1 March)",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet date detection reads first names as dates (Maria -> 1 March)",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/recognition.py:36 (WORD_DATE), 158-170 (find_date); the UI pre-fills it at app/static/scan.js:30</code></p><p><b>Steps to reproduce:</b><br>Call find_date on OCR lines such as '1) Maria Popescu', '12) Iuliana Pop', '5) Ianis Rusu', '7) Decebal Ion'.</p><p><b>Expected:</b><br>None (no date on these lines).</p><p><b>Actual:</b><br>2026-03-01, 2026-07-12, 2026-01-05 and 2026-12-07. On a sheet without a clear date, the wrong date is pre-filled and attendance is saved on the wrong day.</p><p><b>Suggested fix:</b><br>Require a whole month word (from a list) followed by a word boundary, skip numbered name rows, and prefer the header area.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Confirming the same sheet scan twice creates duplicate sessions",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Confirming the same sheet scan twice creates duplicate sessions",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/attendance_scan.py:322-365 (confirm_scan)</code></p><p><b>Steps to reproduce:</b><br>POST .../attendance-scans/confirm twice with the same body (double click or retry).</p><p><b>Expected:</b><br>The second call is detected as a duplicate.</p><p><b>Actual:</b><br>Two closed sessions for the same date. Students who are not on the sheet get two absences.</p><p><b>Suggested fix:</b><br>Use an idempotency key, or refuse a scan session that has the same section/date/label as an existing one.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet scan accepts future dates, and those sessions count as absences right away",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "statistics"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet scan accepts future dates, and those sessions count as absences right away",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/attendance_scan.py:246-248, 340-347</code></p><p><b>Steps to reproduce:</b><br>Confirm a scan with session_date=2099-01-01.</p><p><b>Expected:</b><br>422 for dates in the future.</p><p><b>Actual:</b><br>201. The new session is immediately 'closed', and the enrolled student's statistics show absent=1 for 2099-01-01.</p><p><b>Suggested fix:</b><br>Validate session_date &lt;= today (and starts_at).</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Phone photos with EXIF rotation are OCR'd sideways",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Phone photos with EXIF rotation are OCR'd sideways",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/recognition.py:98-109 (_upscaled_png / read_boxes), rapidocr load_image bytes path</code></p><p><b>Steps to reproduce:</b><br>Upload a portrait phone photo where the camera stored the rotation in the EXIF Orientation tag.</p><p><b>Expected:</b><br>The sheet is read upright.</p><p><b>Actual:</b><br>Image.open() is used without ImageOps.exif_transpose(), and RapidOCR's bytes path doesn't transpose either, so the OCR gets the raw sideways pixels. Matches fail or are poor, and the annotated preview is also sideways.</p><p><b>Suggested fix:</b><br>Apply ImageOps.exif_transpose() first and pass the corrected image to both OCR and annotate.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Device binding is bypassed by omitting the X-Device-Id header",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Device binding is bypassed by omitting the X-Device-Id header",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:503, 546-556</code></p><p><b>Steps to reproduce:</b><br>Student A confirms with X-Device-Id: D1. Student B confirms from the same browser without the header.</p><p><b>Expected:</b><br>Both requests are tied to the same device and the second is refused.</p><p><b>Actual:</b><br>Both get 200. The header is optional and set by the client, so 'one device per student' doesn't stop one phone marking friends present.</p><p><b>Suggested fix:</b><br>Document it as a weak signal, or require the header plus a server-issued device cookie.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Failed location checks are not counted toward the attempt limit",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "location"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Failed location checks are not counted toward the attempt limit",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:535-544</code></p><p><b>Steps to reproduce:</b><br>Send 20 confirmations with a valid code and different coordinates outside the radius.</p><p><b>Expected:</b><br>Repeated failures get rate limited.</p><p><b>Actual:</b><br>All 20 return 403. No CodeAttempt is logged, so a student can probe for the room's location without limit.</p><p><b>Suggested fix:</b><br>Log location failures with reject_attempt() so they count toward limits.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Logout doesn't invalidate the session token",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Logout doesn't invalidate the session token",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:316-318</code></p><p><b>Steps to reproduce:</b><br>Log in through /auth/login, copy the cookie, call /auth/logout, then reuse the copied cookie on /users/me.</p><p><b>Expected:</b><br>401 after logout.</p><p><b>Actual:</b><br>200 until the JWT expires (30 min), because logout only deletes the cookie on the client.</p><p><b>Suggested fix:</b><br>Keep a token version or denylist per user and check it in current_user.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Session cookie loses the Secure flag behind an HTTPS reverse proxy",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Session cookie loses the Secure flag behind an HTTPS reverse proxy",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:310; Dockerfile CMD (uvicorn without --proxy-headers)</code></p><p><b>Steps to reproduce:</b><br>Deploy behind nginx/traefik that terminates TLS and forwards plain HTTP.</p><p><b>Expected:</b><br>The cookie is marked Secure.</p><p><b>Actual:</b><br>request.url.scheme is 'http', so the cookie is sent without Secure. The same missing proxy config also makes client_ip() the proxy address (see the IP lockout ticket).</p><p><b>Suggested fix:</b><br>Run uvicorn with --proxy-headers --forwarded-allow-ips, or use a COOKIE_SECURE setting.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] The same session accepts duplicate absence requests",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "absence"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] The same session accepts duplicate absence requests",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:639-668 (request_absence)</code></p><p><b>Steps to reproduce:</b><br>POST /api/v1/absence-requests 3 times for the same attendance_session_id.</p><p><b>Expected:</b><br>The 2nd request is refused while one is pending or approved.</p><p><b>Actual:</b><br>201, 201, 201. The professor gets three requests to review.</p><p><b>Suggested fix:</b><br>Refuse a new request when a pending or approved one exists for that student and session.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] A professor can mark attendance for a student who was removed from the class",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "attendance"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] A professor can mark attendance for a student who was removed from the class",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:1135-1139 (set_attendance)</code></p><p><b>Steps to reproduce:</b><br>Remove a student from a section, open a session, then PUT .../students/{removed_id} with status=present.</p><p><b>Expected:</b><br>404 'Student is not in this class'.</p><p><b>Actual:</b><br>200. The enrollment lookup ignores status, so a record is created and the removed student shows up in that session's roster.</p><p><b>Suggested fix:</b><br>Require enrollment.status == 'active' (or enrolled_at_start).</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Attendance shows 0% when every counted session is excused",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "statistics"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Attendance shows 0% when every counted session is excused",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:829-832 (attendance_rate)</code></p><p><b>Steps to reproduce:</b><br>A student whose only closed session is excused opens their statistics.</p><p><b>Expected:</b><br>100% or 'n/a'.</p><p><b>Actual:</b><br>attendance_percentage=0.0 with excused=1 and absent=0. This reads as the worst possible attendance.</p><p><b>Suggested fix:</b><br>Return null (or 100) when the denominator is 0 and show 'n/a' in the UI.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] session_date uses the UTC date instead of the local date",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "sessions"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] session_date uses the UTC date instead of the local date",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:423</code></p><p><b>Steps to reproduce:</b><br>Open a session at 01:30 Europe/Bucharest (23:30 UTC the day before).</p><p><b>Expected:</b><br>session_date is the local calendar day.</p><p><b>Actual:</b><br>session_date is the previous day, so the session appears under the wrong date in stats, notifications and absence requests.</p><p><b>Suggested fix:</b><br>Compute the date in a configured TZ (or the professor's timezone).</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Upload size limits are checked only after the whole body is received",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "uploads"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Upload size limits are checked only after the whole body is received",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py:763-766, app/attendance_scan.py:303-306</code></p><p><b>Steps to reproduce:</b><br>POST a very large multipart file (e.g. 2 GB) to the attachment or scan endpoint.</p><p><b>Expected:</b><br>The upload is refused early.</p><p><b>Actual:</b><br>Starlette spools the whole body to a temp file before file.read(limit+1) runs. Any logged-in student can fill the container disk. There's also no Content-Length/body limit in uvicorn.</p><p><b>Suggested fix:</b><br>Enforce a request body limit in a proxy/middleware and reject on Content-Length.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Roster import merges different students who have the same name",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "roster"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Roster import merges different students who have the same name",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/roster.py:449-454 (placeholder_email)</code></p><p><b>Steps to reproduce:</b><br>Import a CSV where two different students named 'POPESCU Ion' are in groups 1241 and 1242.</p><p><b>Expected:</b><br>Two separate accounts.</p><p><b>Actual:</b><br>The email is derived only from the name, so both rows share one account, which is enrolled in both groups. Their attendance is mixed together.</p><p><b>Suggested fix:</b><br>Include a student ID/matriculation number (or group) in the key, and flag homonyms for manual review.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Absence requests can still carry arbitrary external links that the professor UI shows",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "ui"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Absence requests can still carry arbitrary external links that the professor UI shows",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/schemas.py:188, app/static/app.js:1676-1677</code></p><p><b>Steps to reproduce:</b><br>Submit an absence request with attachment_url=<a href=\"https://evil.example/login\" rel=\"nofollow noreferrer noopener\" target=\"_blank\">https://evil.example/login</a>.</p><p><b>Expected:</b><br>Only uploaded attachments are allowed.</p><p><b>Actual:</b><br>The professor sees an 'Open linked document' link to any http(s) URL, which can be used for phishing.</p><p><b>Suggested fix:</b><br>Drop attachment_url now that uploads exist, or show the full domain with a warning.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Docker image ignores uv.lock and runs as root",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "docker"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Docker image ignores uv.lock and runs as root",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>Dockerfile</code></p><p><b>Steps to reproduce:</b><br>Build the image twice, some time apart.</p><p><b>Expected:</b><br>Reproducible, pinned dependencies and a non-root process.</p><p><b>Actual:</b><br>'pip install .' resolves broad ranges from pyproject.toml (e.g. onnxruntime&gt;=1.20 has no upper bound), and uvicorn runs as root.</p><p><b>Suggested fix:</b><br>Install with 'uv sync --frozen' and add a USER directive.</p><p><i>Found by code review (not reproduced at runtime).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] PROBLEMS.md is out of date",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "docs"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] PROBLEMS.md is out of date",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>PROBLEMS.md</code></p><p><b>Steps to reproduce:</b><br>Read PROBLEMS.md and compare it with the repo.</p><p><b>Expected:</b><br>The review matches the current code.</p><p><b>Actual:</b><br>It references frontend/src/api.ts, frontend/vite.config.ts and tests/test_api.py (none exist), says 2 tests pass (188 do now), and lists as open items that are already fixed (rate limiting, HTTP-only cookie, notification read endpoint, uploads, late status, lifespan).</p><p><b>Suggested fix:</b><br>Rewrite it from the current state, or move the open items to the helpdesk.</p><p><i>Verified: reproduced by comparing with the repository.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Attendance board freezes silently when the 30-minute sign-in expires",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "board"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Attendance board freezes silently when the 30-minute sign-in expires",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/static/app.js api() 401 handler (216-219), openBoard() (1427-1580)</code></p><p><b>Steps to reproduce:</b><br>Sign in as professor, wait about 20 minutes, start a 30-minute session. About 10 minutes later the board stops updating.</p><p><b>Expected:</b><br>The professor is told the sign-in expired and can sign in and reopen the board.</p><p><b>Actual:</b><br>On the first 401 the app draws the sign-in form under the full-screen board and stops all timers. The countdown freezes, the QR expires 30 s later so every scan fails, new names stop appearing, and New code / End attendance throw unhandled 401s. No message is shown.</p><p><b>Suggested fix:</b><br>Take overlays down in the 401 handler and on sign-out. Longer term: a token refresh endpoint, or a token lifetime longer than the longest session (120 min).</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser). A fix is reported on branch fix/board-signin-expired (review pull request); it is not in gen 23cb667 yet.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Scan sheet: correcting a dropdown leaves the wrong student ticked and saves them as present",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "scan"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Scan sheet: correcting a dropdown leaves the wrong student ticked and saves them as present",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/static/scan.js scanSession(), change handler on the review dropdowns</code></p><p><b>Steps to reproduce:</b><br>A sheet line 'Popescu Ana' lands in review with 'Popescu Ioana' preselected. Switch the dropdown to Ana, Approve and save.</p><p><b>Expected:</b><br>Only Ana is recorded present.</p><p><b>Actual:</b><br>The change handler only ticks the new pick and never unticks the previous one, so both Ioana and Ana are sent to /attendance-scans/confirm and recorded present.</p><p><b>Suggested fix:</b><br>Untick the previous pick unless the sheet read that student on another row or another dropdown still picks them.</p><p><i>From the 2026-11-02 review; not re-checked. A fix is reported on branch fix/scan-dropdown-unticks (review pull request); it is not in gen 23cb667 yet.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] uv.lock is out of date: uv sync --frozen installs an environment without Pillow",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "repo",
+      "dependencies"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] uv.lock is out of date: uv sync --frozen installs an environment without Pillow",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>uv.lock, pyproject.toml</code></p><p><b>Steps to reproduce:</b><br>Run 'uv lock --check', or 'uv run --frozen pytest' in a fresh checkout.</p><p><b>Expected:</b><br>The lock matches pyproject.toml and the tests run.</p><p><b>Actual:</b><br>rapidocr, onnxruntime, rapidfuzz and pillow were added to pyproject.toml without running uv lock. --frozen installs from the old lock, Pillow is missing, and every test fails with ModuleNotFoundError: No module named 'PIL'.</p><p><b>Suggested fix:</b><br>Regenerate the lock, add 'uv lock --check' to CI, and build the image from the lock (see the Docker ticket).</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser). A fix is reported on branch chore/update-uv-lock (review pull request); it is not in gen 23cb667 yet.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Back-dated scanned sessions never count anyone as absent",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "statistics"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Back-dated scanned sessions never count anyone as absent",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/models.py Enrollment.enrolled_at (default now), app/attendance_scan.py confirm_scan() (starts_at = midnight UTC), app/main.py enrolled_at_start()</code></p><p><b>Steps to reproduce:</b><br>Enroll two students today, scan a sheet dated last week with one name on it, save. Open class statistics.</p><p><b>Expected:</b><br>1 of 2 present; the other student gets an absence.</p><p><b>Actual:</b><br>1 of 1 present. Statistics only count students enrolled before the session start, and enrolled_at is when the student was added in the app, so every back-dated session shows 100% and nobody gets an absence. Also: imported sections belong to the inactive roster owner, so no real professor can scan into them.</p><p><b>Suggested fix:</b><br>Decide what enrolled_at means: NULL ('from the start') for roster imports; for scans, let the professor confirm the class list for that date or set an enrollment start date.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Opening a QR link while signed out fails with an expired QR",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "qr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Opening a QR link while signed out fails with an expired QR",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/app.js pendingQr handling (241-271), confirmFromQr() (870-891)</code></p><p><b>Steps to reproduce:</b><br>Signed out, scan the board QR with a phone, then sign in.</p><p><b>Expected:</b><br>The student is signed in and asked to scan again, or the attendance is confirmed.</p><p><b>Actual:</b><br>The QR has 10-30 s left; typing email and password takes longer, so the expired token is posted, the student sees 'That QR has expired', and it counts as 1 of their 5 failed attempts.</p><p><b>Suggested fix:</b><br>Read exp from the token (sessionIdFromQr already decodes it). If it has passed, don't post it; tell the student to scan again or type the code.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Student page stops updating after one failed request",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "error-handling"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Student page stops updating after one failed request",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/app.js renderStudent() (725-728), sign-in submit (319-320), renderProfessor(), renderSection()</code></p><p><b>Steps to reproduce:</b><br>Open the student page while /students/me/statistics returns an error once (Wi-Fi drop, 500).</p><p><b>Expected:</b><br>The page keeps polling and picks up attendance when it opens.</p><p><b>Actual:</b><br>The polling intervals are registered after 'await loadLive(); await loadStats();'. If either rejects, polling never starts, so attendance opened later never appears although the page says it does. After sign-in, renderHome() is not awaited: if /sections fails, the form stays with nothing shown. Professor views show an empty area on failure.</p><p><b>Suggested fix:</b><br>Register intervals before the first await, wrap first loads in try/catch with an inline error and a Retry button, await renderHome() inside the sign-in try.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Accessibility: the whole app is one aria-live region",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "accessibility"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Accessibility: the whole app is one aria-live region",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/index.html &lt;div id=\"app\" aria-live=\"polite\"&gt;, countdown text in app.js (729)</code></p><p><b>Steps to reproduce:</b><br>Use the student page with NVDA or VoiceOver while attendance is open.</p><p><b>Expected:</b><br>Only real changes are announced.</p><p><b>Actual:</b><br>Every view change replaces #app, the countdown is rewritten every second and live cards every 15 s, so screen readers re-read the countdown and cards over and over and read the whole page on every navigation.</p><p><b>Suggested fix:</b><br>Remove aria-live from #app, announce through the #toast region or move focus to the view heading, and write the countdown only when its text changes.</p><p><i>From the 2026-11-02 review; not re-checked.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Compiled Python files are tracked in git",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "repo"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Compiled Python files are tracked in git",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/__pycache__/*.cpython-314.pyc (7 files)</code></p><p><b>Steps to reproduce:</b><br>Run the app or tests with Python 3.14, then git status.</p><p><b>Expected:</b><br>A clean working tree.</p><p><b>Actual:</b><br>The .pyc files were committed before .gitignore listed __pycache__/, so they are rewritten and show as modified in every checkout.</p><p><b>Suggested fix:</b><br>git rm --cached app/__pycache__/*.pyc</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser). A fix is reported on branch chore/untrack-pycache (review pull request); it is not in gen 23cb667 yet.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Creating a class from All students stays on All students; double click makes two classes",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Creating a class from All students stays on All students; double click makes two classes",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js professorSidebar() create() (1063-1072), signOut() (495-502)</code></p><p><b>Steps to reproduce:</b><br>Open All students, type a class name and click Add class (or double click it).</p><p><b>Expected:</b><br>The new class opens on its Students tab; one class is created.</p><p><b>Actual:</b><br>state.allStudents stays true, so All students stays up while the toast says 'Add your students next'. The button is not disabled during the request, so a double click creates two classes; failures show nothing. signOut() doesn't reset allStudents or tab, so the next professor on that browser lands on the old view.</p><p><b>Suggested fix:</b><br>Set state.allStudents = false in create(), disable the button while the request runs, add try/catch with a toast, reset allStudents and tab on sign-out and 401.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Roster status dropdown shows the new value when saving failed",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Roster status dropdown shows the new value when saving failed",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js roster status select (1273-1283)</code></p><p><b>Steps to reproduce:</b><br>Change a student's status in an attendance list while the PUT fails.</p><p><b>Expected:</b><br>The dropdown goes back to the saved status.</p><p><b>Actual:</b><br>The catch re-enables the select but keeps the new value: the professor sees Present for a student who is still Absent.</p><p><b>Suggested fix:</b><br>Set select.value = row.status in the catch.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Notifications popover can open twice and one copy cannot be closed",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Notifications popover can open twice and one copy cannot be closed",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js notifications button (434-467)</code></p><p><b>Steps to reproduce:</b><br>Click the bell twice quickly.</p><p><b>Expected:</b><br>One popover.</p><p><b>Actual:</b><br>panel is assigned only after 'await api(\"/notifications\")', so two quick clicks build two popovers and the first can never be closed.</p><p><b>Suggested fix:</b><br>Set a loading flag, or create the panel before the await.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] QR link edge cases: malformed link gives a blank page, professor tab keeps a stale QR",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "qr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] QR link edge cases: malformed link gives a blank page, professor tab keeps a stale QR",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js takeQrFromUrl() (241-247), start() (260-271)</code></p><p><b>Steps to reproduce:</b><br>Open /#qr=%E0 (or a link cut short by a QR reader). Separately: open a QR link in a tab where a professor is signed in, sign out, and sign in as a student.</p><p><b>Expected:</b><br>An error message; the professor is told the QR is for students and it is discarded.</p><p><b>Actual:</b><br>decodeURIComponent throws outside any try in start(), so nothing renders. For a professor, start() keeps pendingQr with no message, and the next student who signs in on that tab has it fired as a confirmation.</p><p><b>Suggested fix:</b><br>Wrap the decode in try/catch; in start() use the same professor branch as the hashchange handler.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Scanned sessions show a made-up 02:00 time and the raw method name \"scan\"",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "scan"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Scanned sessions show a made-up 02:00 time and the raw method name \"scan\"",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/attendance_scan.py confirm_scan() (starts_at = midnight UTC), app/static/app.js METHOD_LABEL (1205)</code></p><p><b>Steps to reproduce:</b><br>Save a scanned sheet and open the session list and its attendance list in Romania.</p><p><b>Expected:</b><br>The date only, and a readable method such as 'from paper sheet'.</p><p><b>Actual:</b><br>Sessions show 02:00 or 03:00 and roster rows read '02:00, scan' because METHOD_LABEL has no entry for scan. In time zones behind UTC the previous day is shown.</p><p><b>Suggested fix:</b><br>Add scan to METHOD_LABEL, show only session_date for scanned sessions, or let the professor enter the class time.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Per-class attendance line counts excused classes, the overall figure does not",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "statistics"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Per-class attendance line counts excused classes, the overall figure does not",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js drawStats() per-class line (682-686) vs attendanceSummary() (528-532)</code></p><p><b>Steps to reproduce:</b><br>A student with 2 present and 1 excused in one class opens their page.</p><p><b>Expected:</b><br>Both figures use the same rule.</p><p><b>Actual:</b><br>The class line says '2 of 3 attended' but the overall figure is 100%.</p><p><b>Suggested fix:</b><br>Use sessions.length - excused as the per-class denominator, like attendance_rate() in the backend.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Registering the same email twice at the same moment returns 500",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "backend",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Registering the same email twice at the same moment returns 500",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py register() (253-264)</code></p><p><b>Steps to reproduce:</b><br>Send two identical POST /api/v1/auth/register requests at the same time.</p><p><b>Expected:</b><br>One 201 and one 409.</p><p><b>Actual:</b><br>The email check and the insert are separate; the second insert hits the unique constraint, which isn't caught: 500.</p><p><b>Suggested fix:</b><br>Catch IntegrityError around the commit and return 409, as enroll_student() does.</p><p><i>From the 2026-11-02 review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Anyone can register an account with someone else's email",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Anyone can register an account with someone else's email",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/main.py register() (247-265), enroll_student() (345-374)</code></p><p><b>Steps to reproduce:</b><br>Register a student account with a classmate's university email (ana.popescu@...). The professor then adds that email to the class.</p><p><b>Expected:</b><br>The email is confirmed by its owner before the account can be used.</p><p><b>Actual:</b><br>Register returns 201 with no email check, and enrolling by that email returns 201. The real student can no longer register ('already exists'), and their attendance goes to the other person's account. The same works for professors who know the sign-up code.</p><p><b>Suggested fix:</b><br>Send a verification link before the account can sign in or be enrolled, or restrict sign-up to the university's domain plus verification.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite), gen 23cb667.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] There is no way to reset or change a password",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] There is no way to reset or change a password",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/main.py auth routes (247-323), app/static/app.js renderAuth()</code></p><p><b>Steps to reproduce:</b><br>Forget your password, or want to change it.</p><p><b>Expected:</b><br>A 'Forgot password' flow and a 'Change password' option.</p><p><b>Actual:</b><br>There is no endpoint or UI for either. A user who forgets their password can only be fixed by editing the database; a leaked password can't be changed.</p><p><b>Suggested fix:</b><br>Add a change-password endpoint (with the current password) and an email reset link with a short-lived token.</p><p><i>Found by code review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Students from the roster import can never sign in or claim their account",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "roster",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Students from the roster import can never sign in or claim their account",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/roster.py import_roster() (placeholder emails @roster.example.org, is_active=False)</code></p><p><b>Steps to reproduce:</b><br>Import a roster, scan a sheet with those students, then let one of them register with their real email.</p><p><b>Expected:</b><br>The student registers and sees the attendance recorded for them.</p><p><b>Actual:</b><br>Placeholder accounts are inactive and have an email nobody receives, so they can't sign in. Registering creates a second, separate account with no classes; the scanned attendance stays on the placeholder. The professor sees two people with the same name. Related: duplicate-name ticket, back-dated scan ticket.</p><p><b>Suggested fix:</b><br>Let a professor link a placeholder to a real account (or set the real email on it and send an invite), moving enrollments and records.</p><p><i>Found by code review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Session list shows more present than enrolled when visiting students are scanned",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "statistics",
+      "scan"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Session list shows more present than enrolled when visiting students are scanned",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py section_sessions() (1034-1055)</code></p><p><b>Steps to reproduce:</b><br>A professor has groups A and B. Scan a sheet into group A with only a student from group B on it.</p><p><b>Expected:</b><br>'1 of 1 present' (the visitor counts in the class size, as in class statistics).</p><p><b>Actual:</b><br>'1 of 0 present'. confirmed counts every attended record, but eligible counts only the section's own enrollments. class_statistics() adds the visitors; this list doesn't.</p><p><b>Suggested fix:</b><br>Add the record student ids to eligible, like class_statistics() does.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite), gen 23cb667.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Marking a student Absent after approving their absence request leaves the request 'Approved'",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "absence"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Marking a student Absent after approving their absence request leaves the request 'Approved'",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/main.py set_attendance() (1146-1149), review_absence() (705-722)</code></p><p><b>Steps to reproduce:</b><br>Approve a student's absence request for a closed session, then set that student to Absent in the attendance list.</p><p><b>Expected:</b><br>The request no longer shows as approved (or the professor is warned).</p><p><b>Actual:</b><br>The excused record is deleted, so the class counts as an absence, but the student still sees the request as 'Approved'.</p><p><b>Suggested fix:</b><br>Warn when overriding an excused status that came from a request, and update or note it on the request.</p><p><i>Verified: reproduced against the app with FastAPI TestClient (SQLite), gen 23cb667.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] QR library loaded from a CDN without integrity check; no Content-Security-Policy",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "frontend"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] QR library loaded from a CDN without integrity check; no Content-Security-Policy",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/index.html (9-13), app/main.py (no security headers)</code></p><p><b>Steps to reproduce:</b><br>Open index.html.</p><p><b>Expected:</b><br>Third-party scripts are pinned with integrity hashes and a CSP limits what the page can load.</p><p><b>Actual:</b><br>qrcode-generator is loaded from cdnjs without an integrity attribute, so a compromised CDN file runs with the user's session. The app sends no CSP. Google Fonts are loaded from Google, which shares visitors' IP addresses with Google (GDPR concern in the EU).</p><p><b>Suggested fix:</b><br>Vendor the QR library (or add integrity + crossorigin), self-host the fonts, and add a CSP header.</p><p><i>Found by code review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] A notification arriving while the panel opens is marked read without being shown",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "notifications"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] A notification arriving while the panel opens is marked read without being shown",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js bell click (439-465), app/main.py mark_notifications_read() (1215-1221)</code></p><p><b>Steps to reproduce:</b><br>A notification is created between the panel's GET /notifications and its POST /notifications/read.</p><p><b>Expected:</b><br>Only the notifications shown are marked read.</p><p><b>Actual:</b><br>The POST marks every unread notification of the user as read, including the one that arrived after the list was fetched; the student never sees it highlighted.</p><p><b>Suggested fix:</b><br>Send the ids that were shown (or the newest created_at) and mark only those.</p><p><i>Found by code review; checked against the code at gen 23cb667 (not reproduced in a browser).</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet reader merges two students written close together into one row",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet reader merges two students written close together into one row",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/recognition.py group_into_lines() (130-149), ITEM_START (24)</code></p><p><b>Steps to reproduce:</b><br>Scan a sheet where rows 12 and 13 are written close together (handwriting touching, or the OCR returns one box for both).</p><p><b>Expected:</b><br>Two rows, two students.</p><p><b>Actual:</b><br>The rows become one line. It is only split again when the second part starts with a number followed by ')', so '12 Popescu Ana 13 Ionescu Vlad' stays one line (checked). That line is matched to at most one student, so the other is left out and saved as absent unless the professor notices. All parts of a split line also share the same boxes, so the red/green marks on the photo cover both rows.</p><p><b>Suggested fix:</b><br>Split on row numbers with or without ')' and '.', and on large x-gaps; use the vertical position of each box rather than averaging the row; flag lines that match two students strongly.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet reader output mixes upper/lowercase, odd symbols and Chinese characters",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet reader output mixes upper/lowercase, odd symbols and Chinese characters",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/recognition.py _ocr_engine() (90-95): RapidOCR() with default config; rapidocr config.yaml Rec lang_type: ch</code></p><p><b>Steps to reproduce:</b><br>Scan a handwritten Romanian sheet and look at the 'Not matched' and 'Who is this?' lines.</p><p><b>Expected:</b><br>Text in the Latin alphabet (Romanian/English letters), readable case.</p><p><b>Actual:</b><br>The default recognition model is the Chinese one (lang_type ch), so handwriting is often read as CJK characters or symbols, with case changing letter by letter. The raw text is shown to the professor as is. fold() turns every non-Latin character into a space, so 'Pop口escu' becomes 'pop escu', which then fails to match.</p><p><b>Suggested fix:</b><br>Configure RapidOCR with a Latin/English recognition model, drop or map characters outside the Romanian/English alphabet, and show a cleaned-up, title-cased version of the line.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet reader does not use the row-number sequence: 'i2' is not read as 12",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet reader does not use the row-number sequence: 'i2' is not read as 12",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/recognition.py ROW_NUMBER (25), row_number() (192-195), ITEM_START (24), missing_rows (276-277)</code></p><p><b>Steps to reproduce:</b><br>Scan a sheet with rows 1-11 read correctly where the OCR reads row 12 as 'i2)' (or 'l3.', 'O8').</p><p><b>Expected:</b><br>The reader knows 12 comes after 11 and treats 'i2' as 12.</p><p><b>Actual:</b><br>row_number('i2) Pop Ana') and row_number('l3. Ion Vasile') return None (checked). The row is not split from its neighbour, 'unnamed row' detection skips it, and row 12 is reported as 'not seen on the photo'.</p><p><b>Suggested fix:</b><br>In the number position map common confusions (i/l/I/|-&gt;1, O/o-&gt;0, S-&gt;5, Z-&gt;2, B-&gt;8), and use the expected sequence (previous number + 1) to fix or confirm row numbers.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Sheet reader only works with one exact sheet layout",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "scan",
+      "ocr"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Sheet reader only works with one exact sheet layout",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/recognition.py analyse(), group_into_lines(), SESSION_MARKER (34), find_date() (158-170)</code></p><p><b>Steps to reproduce:</b><br>Scan sheets in other common formats: a table with columns (No. / Name / Group / Signature), rows without numbers, a name column with signatures to the right, a sheet without S1/S2 headings, a slightly tilted photo.</p><p><b>Expected:</b><br>The names are read from any reasonable list or table.</p><p><b>Actual:</b><br>The reader expects numbered rows like '12) Name', one student per line, optional 'S1'/'S2' lines, and a straight photo. Signatures and other columns are joined into the name line and lower the match score; tilted rows drift into the next line (rows join only within 0.3 of a box height). There is no deskew or column detection (see also the EXIF rotation ticket).</p><p><b>Suggested fix:</b><br>Detect table columns and use only the name column, deskew the photo before OCR, and document the supported sheet layout on the Scan tab (or provide a printable template).</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Students can be added to a class only by email, not by name",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "enrollment"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Students can be added to a class only by email, not by name",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/app.js studentsView() (1582-1657), app/schemas.py EnrollmentCreate (118-128), app/main.py enroll_student()</code></p><p><b>Steps to reproduce:</b><br>A professor has the class list with names only (as in the department export) and wants to add the students from the Students tab.</p><p><b>Expected:</b><br>Search for and add students by name (and pick from matches), or paste a list of names.</p><p><b>Actual:</b><br>The Students tab only accepts emails, and the student must already have an account with that email. Adding by name is impossible from the UI; the only name-based path is the CLI roster import, whose accounts can't sign in (see that ticket).</p><p><b>Suggested fix:</b><br>Add a search-by-name picker over existing student accounts (GET /students already exists), and a 'paste names' import that creates invitations or placeholders the professor can link later.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Limited control after a sheet is scanned: unmatched rows can't be resolved and a saved scan can't be undone",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "scan"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Limited control after a sheet is scanned: unmatched rows can't be resolved and a saved scan can't be undone",
+        "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/scan.js scanSession() (99-185), app/attendance_scan.py confirm_scan(), app/main.py cancel_attendance() (open sessions only)</code></p><p><b>Steps to reproduce:</b><br>Scan a sheet with unmatched lines and missing row numbers. Save it, then notice it was the wrong sheet or the wrong class.</p><p><b>Expected:</b><br>Every row can be fixed before saving; a saved scan can be corrected or deleted.</p><p><b>Actual:</b><br>There is a checkbox per student and a dropdown for 'review' rows, but 'Not matched' lines and 'Row numbers not seen' are plain text with no way to assign a student; the read text can't be corrected; students not in any of the professor's classes can't be added. After saving, the session is 'closed', and cancel only works on open sessions, so a wrong scan can't be removed; only each student's status can be changed one by one in the attendance list. (Teammates reported this as 'no individual approve/reject'; per-student checkboxes do exist before saving.) Related: dropdown bug ticket 75028.</p><p><b>Suggested fix:</b><br>Give unmatched/missing rows a student picker, allow 'Delete this scanned session' (with audit log), and add Select all / Clear all to the list.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
+      }
+    ]
+  }
+]

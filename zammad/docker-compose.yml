@@ -63,6 +63,23 @@ services:
       zammad-elasticsearch:
         condition: service_healthy
 
+  # One-shot job: creates the admin/agent accounts and the project tickets from ./seed.
+  # Idempotent, so it is safe on every `docker compose up`.
+  zammad-seed:
+    <<: *zammad-service
+    command: ["bundle", "exec", "rails", "r", "/opt/zammad-seed/seed.rb"]
+    restart: on-failure
+    environment:
+      <<: *zammad-environment
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin2026!Pass}
+      SEED_AGENT_PASSWORD: ${SEED_AGENT_PASSWORD:-Teamwork2026!}
+    volumes:
+      - ./seed:/opt/zammad-seed
+      - zammad-storage:/opt/zammad/storage
+    depends_on:
+      zammad-init:
+        condition: service_completed_successfully
+
   zammad-railsserver:
     <<: *zammad-service
     command: ["zammad-railsserver"]

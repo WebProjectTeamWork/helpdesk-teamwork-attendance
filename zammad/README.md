@@ -33,8 +33,29 @@ docker compose up -d
 docker compose logs -f zammad-init   # wait until it exits with code 0
 ```
 
-Open <http://localhost:8080>. The first-run wizard there creates the admin account,
-organization, and email channel.
+Open <http://localhost:8080>. The `zammad-seed` service has already skipped the setup
+wizard, created the accounts below, and loaded the teamwork-attendance tickets from
+`seed/tickets.json`.
+
+## Seeded accounts and tickets
+
+| Login                   | Role          | Default password  |
+|-------------------------|---------------|-------------------|
+| `admin@example.com`     | Admin + Agent | `Admin2026!Pass`  |
+| `genanomer99@gmail.com` | Agent         | `Teamwork2026!`   |
+| `guzhansofia@gmail.com` | Agent         | `Teamwork2026!`   |
+
+Agents have full access to the `Users` group, so they can take, update and close the tickets.
+Override the passwords with `SEED_ADMIN_PASSWORD` / `SEED_AGENT_PASSWORD` in `.env` before
+the first start, and change them in the UI afterwards.
+
+- **Add a person:** add them to `seed/users.json` and run `docker compose run --rm zammad-seed`.
+- **Update the shipped tickets** after adding new ones in the UI:
+  `docker compose run --rm --no-deps zammad-seed bundle exec rails r /opt/zammad-seed/export.rb`,
+  then commit `seed/tickets.json`.
+
+The seed can run more than once: it updates existing users without changing their
+passwords and skips tickets whose title already exists.
 
 ## Everyday commands
 

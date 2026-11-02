@@ -1,0 +1,5 @@
+[
+  { "admin": true, "firstname": "Admin", "lastname": "Helpdesk", "email": "admin@example.com" },
+  { "firstname": "Genan", "lastname": "Omer", "email": "genanomer99@gmail.com", "roles": ["Agent"] },
+  { "firstname": "Sofiia", "lastname": "Huzhan", "email": "guzhansofia@gmail.com", "roles": ["Agent"] }
+]
