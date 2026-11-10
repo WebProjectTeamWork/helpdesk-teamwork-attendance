@@ -1199,5 +1199,240 @@
         "body": "<p><b>Severity:</b> normal<br><b>Location:</b> <code>app/static/scan.js scanSession() (99-185), app/attendance_scan.py confirm_scan(), app/main.py cancel_attendance() (open sessions only)</code></p><p><b>Steps to reproduce:</b><br>Scan a sheet with unmatched lines and missing row numbers. Save it, then notice it was the wrong sheet or the wrong class.</p><p><b>Expected:</b><br>Every row can be fixed before saving; a saved scan can be corrected or deleted.</p><p><b>Actual:</b><br>There is a checkbox per student and a dropdown for 'review' rows, but 'Not matched' lines and 'Row numbers not seen' are plain text with no way to assign a student; the read text can't be corrected; students not in any of the professor's classes can't be added. After saving, the session is 'closed', and cancel only works on open sessions, so a wrong scan can't be removed; only each student's status can be changed one by one in the attendance list. (Teammates reported this as 'no individual approve/reject'; per-student checkboxes do exist before saving.) Related: dropdown bug ticket 75028.</p><p><b>Suggested fix:</b><br>Give unmatched/missing rows a student picker, allow 'Delete this scanned session' (with audit log), and add Select all / Clear all to the list.</p><p><i>Reported by teammates (manual testing with real sheets). Code cause confirmed at gen 23cb667; sheet photos not re-run here.</i></p>"
       }
     ]
+  },
+  {
+    "title": "[teamwork-attendance] Committed JWT_SECRET/CODE_SECRET let any student sign in as their professor",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth",
+      "docker"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Committed JWT_SECRET/CODE_SECRET let any student sign in as their professor",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>docker-compose.yml:20-21 (JWT_SECRET, CODE_SECRET), APP_ENV not set; app/main.py:96-106 (check_production_settings); app/schemas.py:54 (SectionSummary.professor_id)</code></p><p><b>Steps to reproduce:</b><br>Start the stack with docker-compose.yml as committed. Sign in as a student and call GET /api/v1/sections; read <code>professor_id</code>. Sign a JWT {sub: professor_id, role: professor} with HS256 and the JWT_SECRET from docker-compose.yml.</p><p><b>Expected:</b><br>The token is rejected; deployments refuse to start with the published secrets.</p><p><b>Actual:</b><br>GET /users/me returns the professor. With the forged token the student set their own attendance to present (PUT .../students/{id} → 200) and read the class roster. The published CODE_SECRET also lets a student sign their own QR tokens with a 2-hour expiry. check_production_settings() never runs because APP_ENV defaults to development and compose doesn't set it.</p><p><b>Suggested fix:</b><br>Set APP_ENV=production for every non-local deployment, move both secrets into an untracked .env (and rotate them), and stop returning professor_id to students.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Professor access code can be brute-forced: registration has no rate limit",
+    "group": "Users",
+    "state": "new",
+    "priority": "3 high",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth",
+      "rate-limit"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Professor access code can be brute-forced: registration has no rate limit",
+        "body": "<p><b>Severity:</b> high<br><b>Location:</b> <code>app/main.py:250-268 (register)</code></p><p><b>Steps to reproduce:</b><br>POST /api/v1/auth/register 60 times with role=professor and a different wrong professor_code each time, from one client.</p><p><b>Expected:</b><br>After a few wrong codes the client gets 429 and has to wait.</p><p><b>Actual:</b><br>All 60 attempts return 403 and none return 429. The single shared, human-chosen code unlocks every professor feature, so guessing it is a privilege escalation.</p><p><b>Suggested fix:</b><br>Limit failed professor-code attempts per IP (for example 5 per 15 minutes), or replace the shared code with single-use invite links.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] No per-IP sign-in limit: one password can be sprayed across every account",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth",
+      "rate-limit"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] No per-IP sign-in limit: one password can be sprayed across every account",
+        "body": "<p><b>Severity:</b> medium<br><b>Location:</b> <code>app/main.py:271-291 (authenticate counts failures per email only)</code></p><p><b>Steps to reproduce:</b><br>From one IP, POST /api/v1/auth/token for 40 different emails with the same common password.</p><p><b>Expected:</b><br>The IP is throttled after a number of failures across accounts.</p><p><b>Actual:</b><br>All 40 attempts return 401 and none return 429. Related to the per-email lockout ticket, but this is the opposite gap: spraying across many accounts is never slowed down.</p><p><b>Suggested fix:</b><br>Add a per-IP failure counter next to the per-email one (use the real client IP when behind a proxy).</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Students can check in from outside the room: the code lasts all session, QR links can be forwarded, location is self-reported",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "attendance",
+      "qr",
+      "location"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Students can check in from outside the room: the code lasts all session, QR links can be forwarded, location is self-reported",
+        "body": "<p><b>Severity:</b> medium<br><b>Location:</b> <code>app/main.py:499-545 (confirm_attendance), app/schemas.py:76 (duration up to 120 min), app/config.py:11 (qr_ttl_seconds=30)</code></p><p><b>Steps to reproduce:</b><br>1) Open a 30-minute session and photograph the board code; send it to a student at home. 2) Forward the board's QR link (#qr=…) to another student within 30 s. 3) On a session with location required, send the classroom's latitude/longitude in the JSON body from home.</p><p><b>Expected:</b><br>Check-in needs the student to actually be in the room.</p><p><b>Actual:</b><br>All three return 200. The code works for the whole session, any enrolled student can use a forwarded QR token until it expires, and the location check only compares the coordinates the client sends. (Device binding is tracked separately in 'Device binding is bypassed by omitting the X-Device-Id header'.)</p><p><b>Suggested fix:</b><br>Rotate the code automatically every 30–60 s along with the QR, flag check-ins with no device id or a shared IP for the professor to review, and describe location in the UI as a hint rather than proof.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Any student can follow any class and receive its group posts without approval",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "notifications"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Any student can follow any class and receive its group posts without approval",
+        "body": "<p><b>Severity:</b> medium<br><b>Location:</b> <code>app/newsletter.py:549-590 (subscriptions lists all classes), app/newsletter.py:602-609 (subscribe_to_group)</code></p><p><b>Steps to reproduce:</b><br>As a student in no class, call GET /api/v1/subscriptions, then PUT /api/v1/subscriptions/groups/{any section id}. The professor then posts to that class.</p><p><b>Expected:</b><br>Students only see their own classes, or the professor approves followers.</p><p><b>Actual:</b><br>The directory lists every class in the system (5 in the test data). The subscribe call returns 204 and the outsider received the professor's class post ('Exam room') in their inbox.</p><p><b>Suggested fix:</b><br>Show only classes the professor marks as public, or require professor approval for group subscriptions.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Web UI sends no X-Frame-Options, nosniff, Referrer-Policy or HSTS headers (clickjacking)",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "frontend"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Web UI sends no X-Frame-Options, nosniff, Referrer-Policy or HSTS headers (clickjacking)",
+        "body": "<p><b>Severity:</b> medium<br><b>Location:</b> <code>app/main.py:1232 (StaticFiles mount, no header middleware)</code></p><p><b>Steps to reproduce:</b><br>curl -I http://localhost:8000/</p><p><b>Expected:</b><br>The UI responses include frame-ancestors 'none' / X-Frame-Options DENY, X-Content-Type-Options: nosniff, a Referrer-Policy, and HSTS when served over HTTPS.</p><p><b>Actual:</b><br>None of these headers are sent. Another site can frame the attendance board or the absence approve/remove buttons. CSP and SRI are tracked in 'QR library loaded from a CDN without integrity check; no Content-Security-Policy'.</p><p><b>Suggested fix:</b><br>Add a small middleware that sets these headers on every response.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Professor screens on phones render 506 px wide, so the browser zooms out to 77%",
+    "group": "Users",
+    "state": "new",
+    "priority": "2 normal",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "ui"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Professor screens on phones render 506 px wide, so the browser zooms out to 77%",
+        "body": "<p><b>Severity:</b> medium<br><b>Location:</b> <code>app/static/app.css:260-272 (@media max-width 860px: .layout grid-template-columns: 1fr), app/static/app.css:169 (.tabs)</code></p><p><b>Steps to reproduce:</b><br>Sign in as a professor on a 390 px phone (iPhone 13 emulation).</p><p><b>Expected:</b><br>The page fits the screen at 390 px.</p><p><b>Actual:</b><br>The layout is 506 px wide: the 1fr column grows to fit the no-wrap class chips, and the five tabs don't fit. The phone shrinks the whole page to about 77%, so text is small and the top bar ends at three-quarters of the width.</p><p><b>Suggested fix:</b><br>Inside @media (max-width: 860px): <code>.layout { grid-template-columns: minmax(0, 1fr) }</code> and <code>.tabs { overflow-x: auto }</code>. Tested: the page is back to 390 px.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Absence form: same-day classes all read 'Tue, Nov 10 (missed)'",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "absence"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Absence form: same-day classes all read 'Tue, Nov 10 (missed)'",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.js:984 (fillSessions label uses sessionDay only)</code></p><p><b>Steps to reproduce:</b><br>Have a student miss two or more classes on the same day, then open the absence request form and expand 'Which day'.</p><p><b>Expected:</b><br>Each option can be told apart, e.g. by its start time.</p><p><b>Actual:</b><br>Three identical options 'Tue, Nov 10 (missed)', so the student can easily excuse the wrong class.</p><p><b>Suggested fix:</b><br>Add the start time to the label, e.g. 'Tue, Nov 10, 10:00 (missed)'.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] No maximum password length (2 MB passwords accepted)",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "security",
+      "auth"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] No maximum password length (2 MB passwords accepted)",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/schemas.py:13 (UserCreate.password has min_length only)</code></p><p><b>Steps to reproduce:</b><br>POST /api/v1/auth/register with a 2,000,000-character password.</p><p><b>Expected:</b><br>422 above a sensible limit, e.g. 128 characters.</p><p><b>Actual:</b><br>201 Created. Every sign-in attempt then hashes the full input with Argon2, so huge passwords cost server CPU.</p><p><b>Suggested fix:</b><br>Add max_length=128 to UserCreate.password and to the sign-in form handling.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
+  },
+  {
+    "title": "[teamwork-attendance] Accessibility: low-contrast hint text, buttons with role=listitem, skipped heading level, Esc doesn't close notifications",
+    "group": "Users",
+    "state": "new",
+    "priority": "1 low",
+    "customer_email": "admin@example.com",
+    "tags": [
+      "bug",
+      "teamwork-attendance",
+      "frontend",
+      "accessibility"
+    ],
+    "articles": [
+      {
+        "type": "note",
+        "sender": "Agent",
+        "internal": false,
+        "content_type": "text/html",
+        "subject": "[teamwork-attendance] Accessibility: low-contrast hint text, buttons with role=listitem, skipped heading level, Esc doesn't close notifications",
+        "body": "<p><b>Severity:</b> low<br><b>Location:</b> <code>app/static/app.css:122 (.field .hint), app/static/app.js:557 and :581 (role=listitem on buttons), app/static/app.js:481 (popover closes only on outside click)</code></p><p><b>Steps to reproduce:</b><br>Run axe-core on Register, Statistics and Student home; open the notifications bell and press Esc.</p><p><b>Expected:</b><br>No axe violations, and Esc closes the popover.</p><p><b>Actual:</b><br>axe-core 4.10 reports color-contrast (serious) on the hint text, aria-allowed-role on the timeline and chart buttons, and heading-order on Statistics. Esc leaves the notifications popover open.</p><p><b>Suggested fix:</b><br>Darken the --ink-3 hint colour, put role=listitem on a wrapper element, make the Statistics h3 an h2, and add a keydown Esc handler to the popover.</p><p><i>Verified: reproduced against the running app (uvicorn + SQLite) on 10 Nov 2026, full test pass.</i></p>"
+      }
+    ]
   }
 ]
